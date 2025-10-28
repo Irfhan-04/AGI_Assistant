@@ -1,16 +1,62 @@
-# Core Dependencies
-mss==9.0.1
-pillow==10.1.0
-numpy==1.26.4
-sounddevice==0.4.6
-soundfile==0.12.1
-pyautogui==0.9.54
-pytesseract==0.3.10
-faster-whisper==0.10.0
+# AGI Assistant - Python Dependencies
+# Install with: pip install -r requirements.txt
 
-# Optional: For LLM integration (if you add it)
-ollama
-langchain
+# ===== CORE DEPENDENCIES (Required) =====
+# Screen capture and image processing
+mss>=9.0.1,<10.0.0
+Pillow>=10.0.0,<11.0.0
 
-# Build
-pyinstaller==6.3.0
+# Numerical operations
+numpy>=1.24.0,<2.0.0
+
+# OCR (requires Tesseract system package)
+pytesseract>=0.3.10
+
+# GUI automation
+pyautogui>=0.9.50
+
+# ===== AUDIO DEPENDENCIES (Optional but recommended) =====
+# Audio recording
+sounddevice>=0.4.6
+soundfile>=0.12.1
+
+# Speech transcription (requires significant disk space)
+faster-whisper>=0.10.0
+
+# ===== OPTIONAL ENHANCEMENTS =====
+# Uncomment below for additional features:
+
+# For LLM-powered workflow analysis (requires Ollama installed separately)
+# requests>=2.31.0
+# ollama>=0.1.0
+
+# For advanced pattern detection
+# scikit-learn>=1.3.0
+
+# For browser automation (advanced feature)
+# playwright>=1.40.0
+# selenium>=4.15.0
+
+# For better logging
+# colorlog>=6.7.0
+
+# ===== BUILD DEPENDENCIES (For creating executables) =====
+# Uncomment for building standalone applications
+# pyinstaller>=6.0.0
+
+# ===== DEVELOPMENT DEPENDENCIES =====
+# Uncomment for development
+# pytest>=7.4.0
+# black>=23.0.0
+# flake8>=6.1.0
+
+# ===== PLATFORM-SPECIFIC NOTES =====
+# Linux: May need python3-tk (sudo apt install python3-tk)
+# Linux: May need python3-xlib (sudo apt install python3-xlib)
+# Windows: PortAudio usually included
+# macOS: May need portaudio (brew install portaudio)
+
+# ===== VERSION COMPATIBILITY =====
+# Python 3.8 to 3.11 recommended
+# Python 3.12+ may have compatibility issues with some packages
+# Windows 10+, macOS 10.14+, Linux (Ubuntu 20.04+)

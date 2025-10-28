@@ -1,0 +1,16 @@
+# Core Dependencies
+mss==9.0.1
+pillow==10.1.0
+numpy==1.26.4
+sounddevice==0.4.6
+soundfile==0.12.1
+pyautogui==0.9.54
+pytesseract==0.3.10
+faster-whisper==0.10.0
+
+# Optional: For LLM integration (if you add it)
+ollama
+langchain
+
+# Build
+pyinstaller==6.3.0

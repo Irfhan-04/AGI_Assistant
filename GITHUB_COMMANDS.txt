@@ -1,0 +1,25 @@
+# Quick GitHub Setup Commands
+# Copy and paste these commands one by one in PowerShell/Terminal
+
+# 1. Initialize repository
+git init
+
+# 2. Configure git (replace with your details)
+git config user.name "Your Name"
+git config user.email "your.email@example.com"
+
+# 3. Add all files
+git add .
+
+# 4. Create initial commit
+git commit -m "Initial commit: The AGI Assistant - Complete Observe, Understand, Automate pipeline"
+
+# 5. After creating repository on GitHub, add remote (replace YOUR_USERNAME and REPO_NAME)
+# git remote add origin https://github.com/YOUR_USERNAME/REPO_NAME.git
+
+# 6. Rename branch to main
+# git branch -M main
+
+# 7. Push to GitHub
+# git push -u origin main
+

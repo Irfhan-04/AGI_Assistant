@@ -183,6 +183,3 @@ Built for the Humanity Founders Hackathon.
 For issues or questions, check the logs in `logs/` directory.
 
 ---
-
-**Built with ❤️ for automation and productivity**
-

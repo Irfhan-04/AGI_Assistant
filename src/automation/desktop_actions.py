@@ -1,8 +1,8 @@
-"""Desktop automation actions using PyAutoGUI."""
+"""Desktop automation actions - Cross-platform compatible."""
 
 import time
+import platform
 import pyautogui
-import pygetwindow as gw
 from typing import Optional, Tuple
 from src.config import AUTOMATION_CONFIG
 from src.logger import get_logger
@@ -15,12 +15,13 @@ pyautogui.PAUSE = AUTOMATION_CONFIG["safety"]["pause_between_actions"]
 
 
 class DesktopActions:
-    """Desktop automation actions wrapper."""
+    """Desktop automation actions wrapper - Cross-platform."""
     
     def __init__(self):
         """Initialize desktop actions."""
         self.config = AUTOMATION_CONFIG["safety"]
-        logger.info("Desktop actions initialized")
+        self.platform = platform.system()
+        logger.info(f"Desktop actions initialized for {self.platform}")
     
     def click(self, x: int, y: int, button: str = "left") -> bool:
         """Click at coordinates.
@@ -162,17 +163,24 @@ class DesktopActions:
             return False
     
     def launch_application(self, app_name: str) -> bool:
-        """Launch an application.
+        """Launch an application - Cross-platform.
         
         Args:
-            app_name: Application name or executable path
+            app_name: Application name or command
             
         Returns:
             True if successful
         """
         try:
             import subprocess
-            subprocess.Popen(app_name)
+            
+            if self.platform == 'Windows':
+                subprocess.Popen(app_name, shell=True)
+            elif self.platform == 'Darwin':  # macOS
+                subprocess.Popen(['open', '-a', app_name])
+            else:  # Linux
+                subprocess.Popen(app_name, shell=True)
+            
             logger.info(f"Launched application: {app_name}")
             time.sleep(2)  # Wait for app to start
             return True
@@ -181,7 +189,7 @@ class DesktopActions:
             return False
     
     def close_application(self, window_title: str) -> bool:
-        """Close an application window.
+        """Close an application window - Cross-platform.
         
         Args:
             window_title: Window title to close
@@ -190,20 +198,41 @@ class DesktopActions:
             True if successful
         """
         try:
-            windows = gw.getWindowsWithTitle(window_title)
-            if windows:
-                windows[0].close()
-                logger.info(f"Closed window: {window_title}")
+            if self.platform == 'Windows':
+                import pygetwindow as gw
+                windows = gw.getWindowsWithTitle(window_title)
+                if windows:
+                    windows[0].close()
+                    logger.info(f"Closed window: {window_title}")
+                    return True
+            
+            elif self.platform == 'Linux':
+                import subprocess
+                # Use wmctrl to close window
+                try:
+                    subprocess.run(['wmctrl', '-c', window_title], check=True)
+                    logger.info(f"Closed window: {window_title}")
+                    return True
+                except subprocess.CalledProcessError:
+                    pass
+            
+            elif self.platform == 'Darwin':  # macOS
+                import subprocess
+                # Use AppleScript
+                script = f'tell application "{window_title}" to quit'
+                subprocess.run(['osascript', '-e', script])
+                logger.info(f"Closed application: {window_title}")
                 return True
-            else:
-                logger.warning(f"Window not found: {window_title}")
-                return False
+            
+            logger.warning(f"Window not found or couldn't close: {window_title}")
+            return False
+            
         except Exception as e:
             logger.error(f"Error closing window {window_title}: {e}")
             return False
     
     def switch_to_window(self, window_title: str) -> bool:
-        """Switch to a specific window.
+        """Switch to a specific window - Cross-platform.
         
         Args:
             window_title: Window title to switch to
@@ -212,15 +241,37 @@ class DesktopActions:
             True if successful
         """
         try:
-            windows = gw.getWindowsWithTitle(window_title)
-            if windows:
-                windows[0].activate()
-                logger.info(f"Switched to window: {window_title}")
-                time.sleep(0.5)  # Wait for window to activate
+            if self.platform == 'Windows':
+                import pygetwindow as gw
+                windows = gw.getWindowsWithTitle(window_title)
+                if windows:
+                    windows[0].activate()
+                    logger.info(f"Switched to window: {window_title}")
+                    time.sleep(0.5)
+                    return True
+            
+            elif self.platform == 'Linux':
+                import subprocess
+                # Use wmctrl to activate window
+                try:
+                    subprocess.run(['wmctrl', '-a', window_title], check=True)
+                    logger.info(f"Switched to window: {window_title}")
+                    time.sleep(0.5)
+                    return True
+                except subprocess.CalledProcessError:
+                    pass
+            
+            elif self.platform == 'Darwin':  # macOS
+                import subprocess
+                script = f'tell application "{window_title}" to activate'
+                subprocess.run(['osascript', '-e', script])
+                logger.info(f"Activated application: {window_title}")
+                time.sleep(0.5)
                 return True
-            else:
-                logger.warning(f"Window not found: {window_title}")
-                return False
+            
+            logger.warning(f"Window not found: {window_title}")
+            return False
+            
         except Exception as e:
             logger.error(f"Error switching to window {window_title}: {e}")
             return False
@@ -232,4 +283,3 @@ class DesktopActions:
             Tuple of (width, height)
         """
         return pyautogui.size()
-

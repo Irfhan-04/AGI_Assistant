@@ -1,4 +1,4 @@
-"""LLM interface for communicating with Ollama."""
+"""LLM interface for communicating with Ollama with robust error handling."""
 
 import json
 import time
@@ -20,8 +20,12 @@ class LLMInterface:
         self.model = self.config["model"]
         self.timeout = self.config["timeout"]
         self.max_retries = self.config["max_retries"]
+        self.is_connected = False
         
         logger.info(f"LLM interface initialized with model: {self.model}")
+        
+        # Test connection on initialization
+        self.is_connected = self.test_connection()
     
     def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """Generate text response from LLM.
@@ -31,8 +35,14 @@ class LLMInterface:
             system_prompt: Optional system prompt
             
         Returns:
-            Generated text response
+            Generated text response or error message
         """
+        if not self.is_connected:
+            logger.warning("LLM not connected, attempting to reconnect...")
+            self.is_connected = self.test_connection()
+            if not self.is_connected:
+                return self._generate_fallback_response(prompt)
+        
         for attempt in range(self.max_retries):
             try:
                 logger.info(f"Generating response (attempt {attempt + 1}/{self.max_retries})")
@@ -50,6 +60,7 @@ class LLMInterface:
                     options={
                         "temperature": 0.7,
                         "top_p": 0.9,
+                        "num_predict": 2000,  # Max tokens
                     }
                 )
                 
@@ -57,14 +68,21 @@ class LLMInterface:
                 logger.info("LLM response generated successfully")
                 return result
                 
+            except ollama.ResponseError as e:
+                logger.error(f"Ollama response error (attempt {attempt + 1}): {e}")
+                if "model" in str(e).lower() and "not found" in str(e).lower():
+                    logger.error(f"Model {self.model} not found. Please run: ollama pull {self.model}")
+                    return self._generate_fallback_response(prompt)
+                    
             except Exception as e:
                 logger.error(f"Error generating LLM response (attempt {attempt + 1}): {e}")
                 if attempt < self.max_retries - 1:
                     time.sleep(2 ** attempt)  # Exponential backoff
                 else:
-                    raise
+                    logger.error("Max retries reached, using fallback response")
+                    return self._generate_fallback_response(prompt)
         
-        return ""
+        return self._generate_fallback_response(prompt)
     
     def generate_json(self, prompt: str, system_prompt: Optional[str] = None) -> Dict[str, Any]:
         """Generate JSON response from LLM.
@@ -74,7 +92,7 @@ class LLMInterface:
             system_prompt: Optional system prompt
             
         Returns:
-            Parsed JSON dictionary
+            Parsed JSON dictionary or fallback dict
         """
         # Add JSON format instruction to prompt
         json_prompt = f"{prompt}\n\nIMPORTANT: Respond with valid JSON only. No markdown, no code blocks, just pure JSON."
@@ -91,10 +109,13 @@ class LLMInterface:
             
             # Parse JSON
             return json.loads(response_text)
+            
         except json.JSONDecodeError as e:
             logger.error(f"Error parsing JSON response: {e}")
-            logger.debug(f"Response text: {response_text}")
-            return {}
+            logger.debug(f"Response text: {response_text[:500]}")
+            
+            # Return empty structure as fallback
+            return self._generate_fallback_json()
     
     def test_connection(self) -> bool:
         """Test connection to Ollama.
@@ -107,14 +128,56 @@ class LLMInterface:
             response = ollama.list()
             models = [model["name"] for model in response.get("models", [])]
             
-            if self.model in models:
-                logger.info(f"Model {self.model} is available")
+            if self.model in models or any(self.model.split(':')[0] in m for m in models):
+                logger.info(f"✅ Model {self.model} is available")
                 return True
             else:
-                logger.warning(f"Model {self.model} not found. Available models: {models}")
+                logger.warning(f"⚠️ Model {self.model} not found. Available models: {models}")
+                logger.warning(f"Please run: ollama pull {self.model}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error testing Ollama connection: {e}")
+            logger.error(f"❌ Error testing Ollama connection: {e}")
+            logger.error("Make sure Ollama is installed and running:")
+            logger.error("  1. Download from: https://ollama.ai/download")
+            logger.error(f"  2. Run: ollama pull {self.model}")
             return False
-
+    
+    def _generate_fallback_response(self, prompt: str) -> str:
+        """Generate a fallback response when LLM is unavailable.
+        
+        Args:
+            prompt: Original prompt
+            
+        Returns:
+            Fallback response string
+        """
+        logger.info("Using fallback response (LLM unavailable)")
+        return "Unable to generate response. Please ensure Ollama is running and the phi3.5:mini model is installed."
+    
+    def _generate_fallback_json(self) -> Dict[str, Any]:
+        """Generate a fallback JSON structure.
+        
+        Returns:
+            Basic workflow structure
+        """
+        logger.info("Using fallback JSON structure (LLM unavailable)")
+        return {
+            "workflow_name": "Recorded Workflow",
+            "description": "Workflow captured from user actions (LLM unavailable for analysis)",
+            "confidence": 0.3,
+            "category": "general",
+            "estimated_time_manual": "60 seconds",
+            "estimated_time_auto": "30 seconds",
+            "steps": [],
+            "variables": [],
+            "triggers": ["manual"]
+        }
+    
+    def is_available(self) -> bool:
+        """Check if LLM is currently available.
+        
+        Returns:
+            True if LLM is available
+        """
+        return self.is_connected

@@ -68,17 +68,17 @@ PROCESSING_CONFIG = {
 INTELLIGENCE_CONFIG = {
     "ollama": {
         "base_url": "http://localhost:11434",
-        "model": "phi3.5:mini",  # 3.8GB model
-        "timeout": 60,  # seconds
+        "model": "phi3.5:latest",  # Changed from phi3.5:mini
+        "timeout": 60,
         "max_retries": 3,
     },
     "pattern_detection": {
-        "min_similarity": 0.80,  # 80% threshold
-        "min_occurrences": 3,  # Must see pattern 3+ times
+        "min_similarity": 0.80,
+        "min_occurrences": 3,
     },
     "workflow_generation": {
-        "max_timeline_length": 1000,  # Max events to analyze
-        "confidence_threshold": 0.7,  # Minimum confidence to suggest workflow
+        "max_timeline_length": 1000,
+        "confidence_threshold": 0.7,
     }
 }
 

@@ -1,8 +1,9 @@
-"""Event tracking module for mouse, keyboard, and window changes."""
+"""Event tracking module - Cross-platform compatible."""
 
 import json
 import time
 import threading
+import platform
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Callable, Dict, Any
@@ -11,11 +12,22 @@ import psutil
 from src.config import OBSERVATION_CONFIG
 from src.logger import get_logger
 
+import os
+
+headless = "DISPLAY" not in os.environ or os.environ.get("DISPLAY") == ""
+
+if headless:
+    print("⚠️  Headless environment detected — skipping pynput imports.")
+    mouse = keyboard = None
+else:
+    from pynput import mouse, keyboard
+
+
 logger = get_logger(__name__)
 
 
 class EventTracker:
-    """Tracks mouse clicks, keyboard input, and window changes."""
+    """Tracks mouse clicks, keyboard input, and window changes - Cross-platform."""
     
     def __init__(self, session_dir: Path, on_event: Optional[Callable] = None):
         """Initialize event tracker.
@@ -34,11 +46,13 @@ class EventTracker:
         self.events: list = []
         self.last_window_title = ""
         
+        self.platform = platform.system()
+        
         # Listeners
         self.mouse_listener: Optional[mouse.Listener] = None
         self.keyboard_listener: Optional[keyboard.Listener] = None
         
-        logger.info(f"Event tracker initialized for session: {session_dir.name}")
+        logger.info(f"Event tracker initialized for {self.platform}: {session_dir.name}")
     
     def start(self):
         """Start tracking events."""
@@ -142,7 +156,6 @@ class EventTracker:
     
     def _on_key_release(self, key):
         """Handle keyboard key release events."""
-        # We mainly care about presses, but can track releases too
         pass
     
     def _monitor_windows(self):
@@ -159,50 +172,93 @@ class EventTracker:
                 
                 time.sleep(0.5)  # Check every 500ms
             except Exception as e:
-                logger.error(f"Error monitoring windows: {e}")
+                logger.debug(f"Error monitoring windows: {e}")
                 time.sleep(1.0)
     
     def _get_active_window_title(self) -> str:
-        """Get the title of the currently active window.
+        """Get the title of the currently active window - Cross-platform.
         
         Returns:
             Window title string
         """
         try:
-            import pygetwindow as gw
-            active_windows = gw.getActiveWindow()
-            if active_windows:
-                return active_windows.title
-        except Exception:
-            pass
+            if self.platform == 'Windows':
+                import pygetwindow as gw
+                active_window = gw.getActiveWindow()
+                if active_window:
+                    return active_window.title
+            
+            elif self.platform == 'Darwin':  # macOS
+                try:
+                    from AppKit import NSWorkspace
+                    active_app = NSWorkspace.sharedWorkspace().activeApplication()
+                    return active_app['NSApplicationName']
+                except ImportError:
+                    pass
+            
+            elif self.platform == 'Linux':
+                try:
+                    # Try using wmctrl
+                    import subprocess
+                    result = subprocess.check_output(['xdotool', 'getactivewindow', 'getwindowname'], 
+                                                   stderr=subprocess.DEVNULL)
+                    return result.decode('utf-8').strip()
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    # xdotool not installed, try alternative
+                    try:
+                        result = subprocess.check_output(['xprop', '-id', 
+                                                        subprocess.check_output(['xdotool', 'getactivewindow']).decode().strip(),
+                                                        'WM_NAME'],
+                                                       stderr=subprocess.DEVNULL)
+                        return result.decode('utf-8').split('=')[-1].strip().strip('"')
+                    except:
+                        pass
+        except Exception as e:
+            logger.debug(f"Error getting active window: {e}")
         
-        # Fallback: try to get from process
+        # Fallback: get from process list
         try:
             for proc in psutil.process_iter(['pid', 'name']):
-                try:
-                    if proc.info['name']:
-                        # This is a simplified approach
-                        return proc.info['name']
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
+                if proc.info['name']:
+                    return proc.info['name']
         except Exception:
             pass
         
         return "Unknown"
     
     def _get_active_app_name(self) -> str:
-        """Get the name of the currently active application.
+        """Get the name of the currently active application - Cross-platform.
         
         Returns:
             Application name string
         """
         try:
-            import pygetwindow as gw
-            active_windows = gw.getActiveWindow()
-            if active_windows:
-                return active_windows.title.split(" - ")[-1]  # Usually app name is last part
-        except Exception:
-            pass
+            if self.platform == 'Windows':
+                import pygetwindow as gw
+                active_window = gw.getActiveWindow()
+                if active_window:
+                    # Usually app name is last part after " - "
+                    return active_window.title.split(" - ")[-1]
+            
+            elif self.platform == 'Darwin':  # macOS
+                try:
+                    from AppKit import NSWorkspace
+                    active_app = NSWorkspace.sharedWorkspace().activeApplication()
+                    return active_app['NSApplicationName']
+                except ImportError:
+                    pass
+            
+            elif self.platform == 'Linux':
+                try:
+                    import subprocess
+                    # Get window class name
+                    result = subprocess.check_output(['xdotool', 'getactivewindow', 'getwindowclassname'],
+                                                   stderr=subprocess.DEVNULL)
+                    return result.decode('utf-8').strip()
+                except:
+                    pass
+        except Exception as e:
+            logger.debug(f"Error getting app name: {e}")
         
         return "Unknown"
     
@@ -210,7 +266,7 @@ class EventTracker:
         """Record an event with timestamp.
         
         Args:
-            event_type: Type of event (mouse_click, key_press, etc.)
+            event_type: Type of event
             data: Event data dictionary
         """
         event = {
@@ -235,6 +291,7 @@ class EventTracker:
                 json.dump({
                     "session_id": self.session_dir.name,
                     "total_events": len(self.events),
+                    "platform": self.platform,
                     "events": self.events
                 }, f, indent=2, ensure_ascii=False)
             
@@ -251,6 +308,6 @@ class EventTracker:
         return {
             "event_count": len(self.events),
             "is_tracking": self.is_tracking,
+            "platform": self.platform,
             "events_file": str(self.events_file)
         }
-
